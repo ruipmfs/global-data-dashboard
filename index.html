@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+    <body onload="startDashboard()">
+        <title>Dashboard G14</title>
+        <!-- The main grid layout of the dashboard -->
+        <div class="dashboard">
+            <div class="header">
+                <img src="./assets/ist_logo.png" />
+                <h2>Happiness and its influencing factors around the World</h1>
+            </div>
+            <div class="filters" id="filters">
+                <div class="region-container">
+                    <h2>Filters</h2>
+                    <h3>Regions</h3>
+                    <form>
+                        <input type="checkbox" id="all" name="regions" value="All" checked>
+                        <label for="all">All</label><br>
+                        <input type="checkbox" id="central_and_eastern_europe" name="regions" value="Central and Eastern Europe">
+                        <label for="central_and_eastern_europe">Central and Eastern Europe</label><br>
+                        <input type="checkbox" id="middle_east_and_north_africa" name="regions" value="Middle East and North Africa">
+                        <label for="middle_east_and_north_africa">Middle East and North Africa</label><br>
+                        <input type="checkbox" id="south_asia" name="regions" value="South Asia">
+                        <label for="south_asia">South Asia</label><br>
+                        <input type="checkbox" id="latin_america_and_caribbean" name="regions" value="Latin America and Caribbean">
+                        <label for="latin_america_and_caribbean">Latin America and Caribbean</label><br>
+                        <input type="checkbox" id="sub_saharan_africa" name="regions" value="Sub-Saharan Africa">
+                        <label for="sub_saharan_africa">Sub-Saharan Africa</label><br>
+                        <input type="checkbox" id="western_europe" name="regions" value="Western Europe">
+                        <label for="western_europe">Western Europe</label><br>
+                        <input type="checkbox" id="north_america_and_anz" name="regions" value="North America and ANZ">
+                        <label for="north_america_and_anz">North America and ANZ</label><br>
+                        <input type="checkbox" id="commonwealth_of_independent_states" name="regions" value="Commonwealth of Independent States">
+                        <label for="commonwealth_of_independent_states">Commonwealth of Independent States</label><br>
+                        <input type="checkbox" id="southeast_asia" name="regions" value="Southeast Asia">
+                        <label for="southeast_asia">Southeast Asia</label><br>
+                        <input type="checkbox" id="east_asia" name="regions" value="East Asia">
+                        <label for="east_asia">East Asia</label><br>
+                    </form>
+                </div>
+                <div class="attributes-container">
+                    <h3>Attributes</h3>
+                    <form>
+                        <input type="radio" id="happiness_score" name="choices" value="Happiness Score" checked>
+                        <label for="hapiness_score">Happiness Score</label><br>
+                        <input type="radio" id="well_being_index" name="choices" value="Well Being Index">
+                        <label for="well_being_index">Well Being Index</label><br>
+                        <input type="radio" id="social_support" name="choices" value="Social Support">
+                        <label for="social_support">Social Support</label><br>
+                        <input type="radio" id="freedom_to_make_life_choices" name="choices" value="Freedom to make Life Choices">
+                        <label for="freedom_to_make_life_choices">Freedom to Life Choices</label><br>
+                        <input type="radio" id="healthy_life_expectancy" name="choices" value="Healthy Life Expectancy">
+                        <label for="healthy_life_expectancy">Healthy Life Exp.</label><br>
+                        <input type="radio" id="perceptions_of_corruption" name="choices" value="Perceptions of Corruption">
+                        <label for="perceptions_of_corruption">Perceptions of Corruption</label><br>
+                    </form>
+                </div>
+            </div>
+            <div class="map">
+                <div class="visualization" id="choropleth"></div>
+                <div class="choropleth-legend" id="choroplethLabel"></div>
+            </div>
+            <div class="box-plot" id="boxPlot"><h3>BoxPlot</h3></div>
+            <!-- Visualization area for the scatter plot -->
+            <div class="scatter-plot" id="scatterPlot"></div>
+            <!-- Visualization area for the line chart -->
+            <div class="line-chart" id="LineChart"></div>
+        </div>
+    </body>
+</html>
+<script src="d3.js"></script>
+<script src="topojson-client.js"></script>
+<script src="script.js"></script>
+<script src="linked.js"></script>
+<style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Montserrat';
+    }
+    h1, h2, h3, p {
+        margin: 0;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: [col1-start] 0.3fr [col2-start] 1fr [col3-start] 1fr;
+      grid-template-rows: [row1-start] 50px [row2-start] 1fr [row3-start] 0.6fr [row4-start] 1.4fr;
+      gap: 20px;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+      background-color: #F1F1F1;
+    }
+    .header {
+        grid-column: col1-start / end;
+        grid-row: row1-start;
+        display: flex;
+        align-items: center;
+        gap: 250px;
+        height: 50px;
+        width: 100%;
+        background-color: #DADADA;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+
+        > img {
+            height: 40px;
+            width: auto;
+            background: transparent !important;
+            margin-left: 20px;
+        }
+    }
+    .filters {
+        display: grid;
+        grid-template-rows: auto 1fr 0.7fr;
+        grid-column: col1-start / col2-start;
+        grid-row: row2-start / end;
+        gap: 10px;
+        padding: 10px;
+        margin-left: 20px;
+        margin-bottom: 20px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    }
+    .region-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-bottom: 1px solid grey;
+
+        > h3 {
+            font-size: medium;
+            font-weight: semi-bold;
+            margin-top: 6px;
+        }
+
+        > p {
+            font-size: small;
+        }
+    }
+    .attributes-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        > h3 {
+            font-size: medium;
+            font-weight: semi-bold;
+            margin-top: 6px;
+        }
+    }
+    .map {
+        display: grid;
+        grid-template-columns: 1fr 0.2fr;
+        grid-column: col2-start / col3-start;
+        grid-row: row2-start / row4-start;
+        padding: 10px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    }
+    .choropleth-legend {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .box-plot {
+        grid-column: col3-start / end;
+        grid-row: row2-start / row3-start;
+        padding: 10px;
+        margin-right: 20px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    }
+    .scatter-plot {
+        grid-column: col3-start / end;
+        grid-row: row3-start / end;
+        padding: 10px;
+        margin-right: 20px;
+        margin-bottom: 20px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    }
+    .line-chart {
+        grid-column: col2-start / col3-start;
+        grid-row: row4-start / end;
+        padding: 10px;
+        margin-bottom: 20px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    }
+</style>
