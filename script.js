@@ -1,6 +1,7 @@
 // Declare global variables to hold data for countries and capita
 var globalDataCountries;
 var globalDataAttributes;
+var globalMeanByRegion;
 
 var selectedRegions = ["All"];
 var selectedAttribute = "happiness_score";
@@ -42,17 +43,18 @@ function startDashboard() {
   }
 
   // Function to import both files (data.json and gapminder.csv) using Promise.all
-  function importFiles(file1, file2, file3) {
-    return Promise.all([loadJSON(file1), loadCSV(file2), loadCSV(file3)]);
+  function importFiles(file1, file2, file3, file4) {
+    return Promise.all([loadJSON(file1), loadCSV(file2), loadCSV(file3), loadCSV(file4)]);
   }
 
   // File names for JSON and CSV files
   const file1 = "data.json";
   const file2 = "./datasets/mean_by_country.csv";
   const file3 = "./datasets/mean_by_region.csv";
+  const file4 = "./datasets/means_by_region_overall.csv";
 
   // Import the files and process the data
-  importFiles(file1, file2, file3).then(function (results) {
+  importFiles(file1, file2, file3, file4).then(function (results) {
     // Store the JSON data into globalDataCountries using topojson.feature
     globalDataCountries = topojson.feature(results[0], results[0].objects.countries);
 
@@ -61,6 +63,8 @@ function startDashboard() {
 
     // Store the CSV region data (for the line chart) into regionDataAttributes
     regionDataAttributes = results[2];
+
+    globalMeanByRegion = results[3];
 
     // Convert data to numbers
     globalDataAttributes.forEach(function (d) {
@@ -117,7 +121,8 @@ function startDashboard() {
       });
   });
 
-    // Call functions to create the choropleth map and scatter plot
+    //createBoxPlot(globalDataAttributes, 'happiness_score', 'Central and Eastern Europe');
+    createBoxPlots();
     createChoroplethMap();
     createLineChart();
     createScatterPlot();
@@ -296,6 +301,117 @@ for (const tick of tickValues) {
 }
 }
 
+function createBoxPlot(data, attributeId, region, svgGroup) {
+  // Filter data for the specified region
+  data = data.filter(item => region.includes(item.region));
+
+  // Compute summary statistics used for the box
+  var sorted_data = data.map(d => d[attributeId]).sort(d3.ascending);
+  var q1 = d3.quantile(sorted_data, 0.25);
+  var median = d3.quantile(sorted_data, 0.5);
+  var q3 = d3.quantile(sorted_data, 0.75);
+  var min = d3.min(sorted_data);
+  var max = d3.max(sorted_data);
+
+  var boxplotHeight = 200;
+  var boxplotWidth = 50;
+
+  // Create y scale for the boxplot
+  const yScale = d3
+    .scaleLinear()
+    .domain([0, 1]) // Adjust the domain based on your data
+    .range([boxplotHeight, 0]);
+
+  // Append and style the main vertical line
+  svgGroup
+    .append("line")
+    .attr("x1", boxplotWidth / 4)
+    .attr("x2", boxplotWidth / 4)
+    .attr("y1", yScale(min))
+    .attr("y2", yScale(max))
+    .attr("stroke", "black");
+
+  // Append and style the box
+  svgGroup
+    .append("rect")
+    .attr("x", boxplotWidth / 4 - boxplotWidth / 8)
+    .attr("y", yScale(q3))
+    .attr("height", yScale(q1) - yScale(q3))
+    .attr("width", boxplotWidth / 4)
+    .attr("stroke", "black")
+    .style("fill", "steelblue");
+
+  // Append and style the min, median, and max lines
+  svgGroup
+    .selectAll("line.boxplot-lines")
+    .data([min, median, max])
+    .enter()
+    .append("line")
+    .attr("class", "boxplot-lines")
+    .attr("x1", boxplotWidth / 4 - boxplotWidth / 8)
+    .attr("x2", boxplotWidth / 4 + boxplotWidth / 8)
+    .attr("y1", d => yScale(d))
+    .attr("y2", d => yScale(d))
+    .attr("stroke", "black");
+}
+
+function createBoxPlots() {
+  const containerWidth = 700; // Width of the container
+  const containerHeight = 200; // Height of each boxplot
+  const numBoxPlots = 10; // Number of box plots to create
+
+  const svg = d3
+    .select("#boxPlotContainer")
+    .append("svg")
+    .attr("width", containerWidth)
+    .attr("height", containerHeight)
+    .append("g");
+
+  const yScale = d3
+    .scaleLinear()
+    .domain([0, 1])
+    .range([containerHeight - 40, 0]);
+
+  // Iterate through the regions and create box plots for each
+  const regions = allRegions;
+
+  for (let i = 0; i < numBoxPlots; i++) {
+    // Calculate the Y position for each box plot
+    const xPos = i * 50;
+
+    // Create a group for each box plot and translate it to the appropriate position
+    const boxPlotGroup = svg
+      .append("g")
+      .attr("transform", `translate(${xPos + margin.left},${margin.top})`);
+
+    if (i === 0) {
+      // Append the Y axis to each box plot
+      boxPlotGroup
+        .append("g")
+        .attr("class", "y-axis")
+        .call(
+          d3
+            .axisLeft(yScale)
+            .tickFormat(d3.format(".1f"))
+            .tickSizeOuter(0)
+      );
+
+      // Append Y axis labels to each box plot
+      boxPlotGroup
+        .append("text")
+        .attr("class", "y-axis-label")
+        .attr("x", -containerHeight / 2 + 15)
+        .attr("y", -margin.left + 30)
+        .style("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .text("Happiness Score");
+    }
+
+    // Create a box plot for the current region
+    const region = regions[i];
+    createBoxPlot(globalDataAttributes, 'happiness_score', region, boxPlotGroup);
+  }
+}
 
 // Function to create the scatter plot
 function createScatterPlot() {

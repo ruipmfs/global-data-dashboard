@@ -59,7 +59,7 @@
                 <div class="visualization" id="choropleth"></div>
                 <div class="choropleth-legend" id="choroplethLabel"></div>
             </div>
-            <div class="box-plot" id="boxPlot"><h3>BoxPlot</h3></div>
+            <div class="box-plot" id="boxPlotContainer"></div>
             <!-- Visualization area for the scatter plot -->
             <div class="scatter-plot" id="scatterPlot"></div>
             <!-- Visualization area for the line chart -->
@@ -164,6 +164,8 @@
         align-items: center;
     }
     .box-plot {
+        display: flex;
+        flex-direction: row;
         grid-column: col3-start / end;
         grid-row: row2-start / row3-start;
         padding: 10px;
@@ -171,6 +173,7 @@
         background-color: white;
         border-radius: 8px;
         box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+        max-height: 200px;
     }
     .scatter-plot {
         grid-column: col3-start / end;
