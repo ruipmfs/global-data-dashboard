@@ -1,16 +1,15 @@
 // Function to handle mouseover event
 function handleMouseOverCountry(event, item) {
-  console.log(item);
   updateCountry(item, "red");
-  updateCountry(selectedCountry, "green");
-  updateRegion(selectedRegion, "green");
+  updateCountry(selectedCountry, "orange");
+  updateRegion(selectedRegion, "orange");
 }
 
 // Function to handle mouseout event
 function handleMouseOutCountry(event, item) {
   updateCountry(item, "black");
-  updateCountry(selectedCountry, "green");
-  updateRegion(selectedRegion, "green");
+  updateCountry(selectedCountry, "orange");
+  updateRegion(selectedRegion, "orange");
 }
 
 // Function to handle click event
@@ -20,21 +19,25 @@ function handleClickCountry(event, item) {
       updateRegion(selectedRegion, "black");
       selectedRegion = 0;
     }
-    updateCountry(item, "green");
+    updateCountry(item, "orange");
     selectedCountry = item;
-  } else if (d3.select(this).attr("stroke") === "green") {
+  } else if (d3.select(this).attr("stroke") === "orange") {
     updateCountry(item, "black");
     selectedCountry = 0;
   } else {
     updateCountry(selectedCountry, "black");
-    updateCountry(item, "green");
+    updateCountry(item, "orange");
     selectedCountry = item;
   }
 }
 
 // Function to update stroke of matching elements
 function updateCountry(item, color) {
+  var strokeWidth = 1;
   if(item !== 0) {
+    if (color !== "black") {
+      strokeWidth = 2;
+    }
     d3.selectAll(".data")
       .filter(function (d) {
         // Check if "properties" exist in both item and d objects
@@ -48,20 +51,21 @@ function updateCountry(item, color) {
         }
       })
       .attr("stroke", color) // Change the stroke color of the matching elements to color
+      .attr("stroke-width", strokeWidth)
       .raise();
   }
 }
 
 function handleMouseOverRegion(event, item) {
   updateRegion(item, "red");
-  updateCountry(selectedCountry, "green");
-  updateRegion(selectedRegion, "green");
+  updateCountry(selectedCountry, "orange");
+  updateRegion(selectedRegion, "orange");
 }
 
 function handleMouseOutRegion(event, item) {
-  updateRegion(item, "black");
-  updateCountry(selectedCountry, "green");
-  updateRegion(selectedRegion, "green");
+  updateRegion(item, d3.interpolateBlues(0.6));
+  updateCountry(selectedCountry, "orange");
+  updateRegion(selectedRegion, "orange");
 }
 
 function handleClickRegion(event, item) {
@@ -70,27 +74,44 @@ function handleClickRegion(event, item) {
       updateCountry(selectedCountry, "black");
       selectedCountry = 0;
     }
-    updateRegion(item, "green");
+    updateRegion(item, "orange");
     selectedRegion = item;
   } 
-  else if (d3.select(item).attr("stroke") === "green") {
+  else if (d3.select(item).attr("stroke") === "orange") {
     updateRegion(item, "black");
     selectedRegion = 0;
   } 
   else {
     updateRegion(selectedRegion, "black");
-    updateRegion(item, "green");
+    updateRegion(item, "orange");
     selectedRegion = item;
   }
 }
 
 function updateRegion(item, color) {
   if (item !== 0) { 
+    //Select regionn of item
     region = d3.select(item).attr("region");
-    d3.select(item).attr("stroke", color);
+
+    var mainColor = color;
+
+    if (color === d3.interpolateBlues(0.6)) {
+      mainColor = "black"
+    }
+    //Update line
+    d3.select("#LineChart").selectAll(".line").filter(function(d) {
+      return d3.select(this).attr("region") === region;
+    }).attr("stroke", color).raise();
+
+    //Update boxplot
+    d3.select("#boxPlotContainer").selectAll(".box").filter(function(d) {
+      return d3.select(this).attr("region") === region;
+    }).attr("stroke", mainColor);
+
+    //Update scatter and map
     d3.selectAll(".circle.data").each(function (d) {
       if(d.region===region) {
-        updateCountry(d, color);
+        updateCountry(d, mainColor);
       }
     });
   }

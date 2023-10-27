@@ -2,6 +2,7 @@
 var globalDataCountries;
 var globalDataAttributes;
 var globalMeanByRegion;
+var regionDataAttributes;
 
 var selectedRegions = ["All"];
 var selectedAttribute = "happiness_score";
@@ -88,14 +89,11 @@ function startDashboard() {
       radio.addEventListener("change", function () {
         selectedAttribute = this.id;
         updateCharts(selectedAttribute, selectedRegions);
-        console.log("Region: ", selectedRegions);
-        console.log("Attribute: ", selectedAttribute);
       });
     });
 
     document.querySelectorAll('input[name="regions"]').forEach(function (checkbox) {
       checkbox.addEventListener("change", function () {
-          console.log(this.value);
           if (this.value === "All") {
               if (selectedRegions[0] !== "All") {
                 selectedRegions = ["All"];
@@ -116,8 +114,6 @@ function startDashboard() {
               document.querySelector('input[value="All"]').checked = false; 
           }
           updateCharts(selectedAttribute, selectedRegions);
-          console.log("Region: ", selectedRegions);
-          console.log("Attribute: ", selectedAttribute);
       });
   });
 
@@ -241,64 +237,7 @@ function createChoroplethMap() {
     mapGroup.attr("transform", event.transform);
   }
 
-  // Create a legend for the choropleth map
-  const svg2 = d3
-    .select("#choroplethLabel")
-    .append("svg")
-    .attr("width", width * 0.2)
-    .attr("height", height);
-
-  // Create a gradient for the legend color scale
-  const defs = svg2.append("defs");
-  const gradient = defs
-    .append("linearGradient")
-    .attr("id", "colorScaleGradient")
-    .attr("x1", "0%")
-    .attr("y1", "0%")
-    .attr("x2", "0%")
-    .attr("y2", "100%");
-
-  gradient
-    .append("stop")
-    .attr("offset", "0%")
-    .attr("stop-color", d3.interpolateBlues(0));
-
-  gradient
-    .append("stop")
-    .attr("offset", "100%")
-    .attr("stop-color", d3.interpolateBlues(1));
-
-  // Create the legend rectangle filled with the color scale gradient
-  const legend = svg2.append("g").attr("transform", `translate(0, 40)`);
-  const legendHeight = height - 40;
-  const legendWidth = 20;
-
-  legend
-    .append("rect")
-    .attr("width", legendWidth)
-    .attr("height", legendHeight)
-    .style("fill", "url(#colorScaleGradient)");
-
-  legend
-    .append("text")
-    .attr("class", "y-axis-label")
-    .attr("x", -legendHeight / 2)
-    .attr("y", -margin.right + 35)
-    .style("text-anchor", "middle")
-    .attr("transform", "rotate(-90)")
-    .text("Happiness Score");
-
-  //Calculate the tick values
-  const tickValues = d3.range(0, 1.1, 0.25); // Erzeugt [0, 0.25, 0.5, 0.75, 1]
-
-// Add tick marks and labels to the legend
-for (const tick of tickValues) {
-  legend
-    .append("text")
-    .attr("x", legendWidth + 5)
-    .attr("y", legendHeight * tick)
-    .text(tick.toFixed(2));
-}
+  createLegendForMap(null)
 }
 
 function createBoxPlot(data, attributeId, region, svgGroup) {
@@ -307,9 +246,9 @@ function createBoxPlot(data, attributeId, region, svgGroup) {
 
   // Compute summary statistics used for the box
   var sorted_data = data.map(d => d[attributeId]).sort(d3.ascending);
-  var q1 = d3.quantile(sorted_data, 0.25);
-  var median = d3.quantile(sorted_data, 0.5);
-  var q3 = d3.quantile(sorted_data, 0.75);
+  var q1 = d3.quantile(sorted_data, 0.25).toFixed(4);
+  var median = d3.quantile(sorted_data, 0.5).toFixed(4);
+  var q3 = d3.quantile(sorted_data, 0.75).toFixed(4);
   var min = d3.min(sorted_data);
   var max = d3.max(sorted_data);
 
@@ -320,26 +259,62 @@ function createBoxPlot(data, attributeId, region, svgGroup) {
   const yScale = d3
     .scaleLinear()
     .domain([0, 1]) // Adjust the domain based on your data
-    .range([boxplotHeight, 0]);
+    .range([boxplotHeight - 40, 0]);
 
   // Append and style the main vertical line
   svgGroup
     .append("line")
+    .attr("class", "lines")
+    .attr("region", region)
     .attr("x1", boxplotWidth / 4)
     .attr("x2", boxplotWidth / 4)
     .attr("y1", yScale(min))
     .attr("y2", yScale(max))
     .attr("stroke", "black");
 
+  // Create a tooltip div element
+const tooltip = d3.select("body").append("div")
+.attr("class", "tooltip")
+.style("opacity", 0)
+.style("position", "absolute")
+.style("background", "white")
+.style("border", "1px solid #000")
+.style("padding", "5px");
+
   // Append and style the box
   svgGroup
     .append("rect")
+    .attr("class", "box")
     .attr("x", boxplotWidth / 4 - boxplotWidth / 8)
     .attr("y", yScale(q3))
     .attr("height", yScale(q1) - yScale(q3))
     .attr("width", boxplotWidth / 4)
     .attr("stroke", "black")
-    .style("fill", "steelblue");
+    .attr("region", region)
+    .style("fill", d3.interpolateBlues(.5))
+    .on("mouseover", function (event) {
+      // Show the tooltip when hovering over a country
+      tooltip
+        .style("opacity", 0.9);
+      tooltip.html("Region: " + region + "<br/>Max: " + max + "<br/>Min: " + min + "<br/>Q1: " + q1 + "<br/>Median: " + median + "<br/>Q3: " + q3);
+
+      handleMouseOverRegion(event, this);
+    })
+    .on("mousemove", function (event) {
+      // Update the tooltip position as the mouse moves
+      tooltip.style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+    })
+    .on("mouseout", function (event) {
+      // Hide the tooltip when moving away from the country
+      tooltip.style("opacity", 0)
+      .style("left", "10px")
+      .style("top", "10px");
+      handleMouseOutRegion(event, this);
+    })
+    .on("click", function(event) {
+      handleClickRegion(event, this);
+    });
 
   // Append and style the min, median, and max lines
   svgGroup
@@ -348,6 +323,7 @@ function createBoxPlot(data, attributeId, region, svgGroup) {
     .enter()
     .append("line")
     .attr("class", "boxplot-lines")
+    .attr("region", region)
     .attr("x1", boxplotWidth / 4 - boxplotWidth / 8)
     .attr("x2", boxplotWidth / 4 + boxplotWidth / 8)
     .attr("y1", d => yScale(d))
@@ -396,7 +372,6 @@ function createBoxPlots() {
             .tickSizeOuter(0)
       );
 
-      // Append Y axis labels to each box plot
       boxPlotGroup
         .append("text")
         .attr("class", "y-axis-label")
@@ -404,7 +379,8 @@ function createBoxPlots() {
         .attr("y", -margin.left + 30)
         .style("text-anchor", "middle")
         .attr("transform", "rotate(-90)")
-        .text("Happiness Score");
+        .text("Happiness Score")
+        .style("font-size", "12px");;
     }
 
     // Create a box plot for the current region
@@ -593,7 +569,7 @@ function createScatterPlot() {
   legend
       .append("text")
       .attr("x", legendWidth - 20)
-      .attr("y", legendHeight - 300)
+      .attr("y", legendHeight - 295)
       .text("Generosity");
 }
 
@@ -608,7 +584,7 @@ function createLineChart() {
   globalYears = years;
 
   // Set the sizes of the line chart
-  const lineChartWidth = 570 - margin.left - margin.right;
+  const lineChartWidth = 590 - margin.left - margin.right;
   const lineChartHeight = 300 - margin.top - margin.bottom;
 
   // Create an SVG-element for the line chart
@@ -634,6 +610,34 @@ function createLineChart() {
     .x((d, i) => xScale(years[i]))
     .y((d, i) => yScale(d));
 
+  const meanByYear = d3.group(regionDataAttributes, d => d.year);
+
+  // Calculate the mean for each attribute by year
+  meanByYear.forEach((values, year) => {
+    const meanData = { year: year };
+    regionDataAttributes.columns.forEach(attribute => {
+      if (attribute !== "year") {
+        const attributeValues = values.map(d => d[attribute]);
+        meanData[attribute] = d3.mean(attributeValues);
+      }
+    });
+    meanByYear.set(year, meanData);
+  });
+
+  // Define a line generator for the mean data
+const meanLine = d3.line()
+.x(d => xScale(+d.year))
+.y(d => yScale(d.happiness_score))
+
+// Append a new path element for the mean line
+svg.append("path")
+.datum(Array.from(meanByYear.values())) // Convert Map values to an array
+.attr("class", "mean-line")
+.attr("d", meanLine)
+.attr("stroke", d3.interpolateBlues(0.9)) // Adjust the color as needed
+.attr("stroke-width", 5)
+.attr("fill", "none");
+
 // Create a group for each region
 regions.forEach((region, index) => {
 const regionData = regionDataAttributes.filter(d => d.region === region);
@@ -654,14 +658,13 @@ const tooltip = d3.select("body").append("div")
     .datum(happinessScores)
     .attr("class", "line")
     .attr("d", line)
-    .attr("stroke", "black")
+    .attr("stroke", d3.interpolateBlues(.6))
     .attr("stroke-width", 2)
     .attr("fill", "none")
     .attr("region", region)
     .on("mouseover", function (event) {
       // Show the tooltip when hovering over a country
-      tooltip.transition()
-        .duration(200)
+      tooltip
         .style("opacity", 0.9);
       tooltip.html("Region: " + region);
 
@@ -674,15 +677,49 @@ const tooltip = d3.select("body").append("div")
     })
     .on("mouseout", function (event) {
       // Hide the tooltip when moving away from the country
-      tooltip.transition()
-        .duration(500)
-        .style("opacity", 0);
+      tooltip.style("opacity", 0)
+      .style("left", "10px")
+      .style("top", "10px");
       handleMouseOutRegion(event, this);
     })
     .on("click", function(event) {
       handleClickRegion(event, this);
     });
 });
+
+  // Define the name and color for the mean line
+  const meanLineLegend = {
+    name: "Mean Happiness Score",
+    color: d3.interpolateBlues(0.9), // Adjust the color as needed
+  };
+
+  // Append a new path element for the mean line
+  svg.append("path")
+    .datum(Array.from(meanByYear.values()))
+    .attr("class", "mean-line-legend")
+    .attr("stroke", meanLineLegend.color)
+    .attr("stroke-width", 6)
+    .attr("fill", "none");
+
+  // Create a legend for the mean line
+  const legendGroup = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${lineChartWidth + 15}, 100)`); // Adjust the position as needed
+
+  // Create a legend item for the mean line
+  const meanLegendItem = legendGroup.append("g")
+    .attr("class", "legend-item");
+
+  meanLegendItem.append("rect")
+    .attr("width", 12)
+    .attr("height", 12)
+    .attr("fill", meanLineLegend.color);
+
+  meanLegendItem.append("text")
+    .attr("x", 15)
+    .attr("y", 10)
+    .text("Global Mean")
+    .style("font-size", "14px");
 
   // Add x-axis
   svg.append("g")
@@ -714,14 +751,131 @@ const tooltip = d3.select("body").append("div")
 }
 
 // Function to update the charts based on the selected attribute
-function updateCharts(attributeId, regionName) {
+function updateCharts(attributeId, regionNames) {
   // Update the title of the choropleth map
   d3.select("#choroplethTitle")
   .text(attributeId)
 
-  updateChoroplethMap(attributeId, regionName);
-  updateScatterPlot(attributeId, regionName);
-  updateLineChart(attributeId, [regionName]);
+  updateChoroplethMap(attributeId, regionNames);
+  updateBoxPlots(attributeId, regionNames)
+  updateScatterPlot(attributeId, regionNames);
+  updateLineChart(attributeId, regionNames);
+}
+function getAttributeScore(countryName, attributeName) {
+  const data = currentData.find((item) => item.country === countryName);
+  return data ? data[attributeName] : "N/A";
+}
+
+function updateBoxPlots(attributeId, regions) {
+  var boxplotHeight = 200;
+  var boxplotWidth = 50;
+
+  var sorted_data;
+    var q1;
+    var median;
+    var q3;
+    var min;
+    var max;
+
+  // Create y scale for the boxplot
+  const yScale = d3
+    .scaleLinear()
+    .domain([0, 1]) // Adjust the domain based on your data
+    .range([boxplotHeight - 40, 0]);
+
+    // Create a tooltip div element
+  const tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0)
+    .style("position", "absolute")
+    .style("background", "white")
+    .style("border", "1px solid #000")
+    .style("padding", "5px");
+
+  if (regions.includes('All')) {
+    regions = allRegions;
+  }
+
+  d3.select("#boxPlotContainer").selectAll(".box, .boxplot-lines, .lines")
+  .filter(function(d) {
+    return regions.includes(d3.select(this).attr("region"));
+  })
+  .attr("opacity", 1);
+
+  d3.select("#boxPlotContainer").selectAll(".box, .boxplot-lines, .lines")
+  .filter(function(d) {
+    return !regions.includes(d3.select(this).attr("region"));
+  })
+  .attr("opacity", 0.2);
+
+  for (const region in regions) {
+    console.log(regions[region]);
+    const data = globalDataAttributes.filter(item => item.region === regions[region]);
+
+    // Compute summary statistics used for the box
+    sorted_data = data.map(d => d[attributeId]).sort(d3.ascending);
+    q1 = d3.quantile(sorted_data, 0.25);
+    median = d3.quantile(sorted_data, 0.5);
+    q3 = d3.quantile(sorted_data, 0.75);
+    min = d3.min(sorted_data);
+    max = d3.max(sorted_data);
+
+    
+    //, .box, .boxplot-lines, .lines
+    d3.select("#boxPlotContainer").selectAll(".lines")
+      .filter(function(d) {
+        return d3.select(this).attr("region") === regions[region];
+      }).each(function(d) {
+        d3.select(this)
+          .attr("y1", yScale(min))
+          .attr("y2", yScale(max));
+      });
+
+    d3.select("#boxPlotContainer").selectAll(".box")
+      .filter(function(d) {
+        return d3.select(this).attr("region") === regions[region];
+      }).each(function(d) {
+      d3.select(this)
+        .attr("y", yScale(q3))
+        .attr("height", yScale(q1) - yScale(q3))
+        .attr("max", max)
+        .attr("min", min)
+        .attr("q1", q1)
+        .attr("median", median)
+        .attr("q3", q3)
+        .on("mouseover", function (event) {
+          tooltip
+            .style("opacity", 0.9);
+          tooltip.html("Region: " + regions[region] + "<br/>Max: " + d3.select(this).attr("max") + "<br/>Min: " + d3.select(this).attr("min") + "<br/>Q1: " + d3.select(this).attr("q1") + "<br/>Median: " + d3.select(this).attr("median") + "<br/>Q3: " + d3.select(this).attr("q3"));
+          handleMouseOverRegion(event, this);
+        })
+        .on("mousemove", function (event) {
+          // Update the tooltip position as the mouse moves
+          tooltip.style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 10) + "px");
+        })
+        .on("mouseout", function (event) {
+          // Hide the tooltip when moving away from the country
+          tooltip.style("opacity", 0)
+          .style("left", "10px")
+          .style("top", "10px");
+          handleMouseOutRegion(event, this);
+        })
+        .on("click", function(event) {
+          handleClickRegion(event, this);
+        });
+      }); 
+
+    d3.select("#boxPlotContainer").selectAll("line.boxplot-lines")
+      .filter(function(d) {
+        return d3.select(this).attr("region") === regions[region];
+      }).data([min, median, max])
+        .attr("y1", d => yScale(d))
+        .attr("y2", d => yScale(d)); 
+
+  }
+  d3.select("#boxPlotContainer").select(".y-axis-label")
+      .text(getAttributeName(attributeId));
 }
 
 function updateChoroplethMap(attributeName, regions) {
@@ -729,41 +883,140 @@ function updateChoroplethMap(attributeName, regions) {
       return d[attributeName] !== "";
     });
 
-    // Create a color scale for the happinessscore values
+    // Create a new color scale for the selected attribute
   const colorScale = d3
     .scaleLog()
     .domain([
-      d3.min(currentData, (d) => d.attributeName),
-      d3.max(currentData, (d) => d.attributeName),
+      d3.min(currentData, (d) => d[attributeName]),
+      d3.max(currentData, (d) => d[attributeName]),
     ])
     .range([0, 1]);
+
+  // Create a tooltip div element
+  const tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0)
+    .style("position", "absolute")
+    .style("background", "white")
+    .style("border", "1px solid #000")
+    .style("padding", "5px");
+
+  // Update the fill color and tooltips of each country on the map
+  d3.select("#choropleth")
+    .selectAll("path")
+    .attr("fill", function (d) {
+      const countryName = d.properties.name;
+      const matchingData = currentData.find((item) => item.country === countryName);
+      if (matchingData) {
+        var fillColor = d3.interpolateBlues(colorScale(matchingData[attributeName]));
+        if (!regions.includes("All") && !regions.includes(matchingData.region)) {
+          fillColor = "lightgray";
+        }
+        // Update the tooltip for this country
+        d3.select(this)
+          .on("mouseover", function (event, d) {
+            tooltip.style("opacity", 0.9);
+            tooltip.html("Country: " + d.properties.name + "<br/>" + getAttributeName(attributeName) + ": " + matchingData[attributeName]);
+            handleMouseOverCountry(event, d);
+          })
+          .on("mousemove", function (event) {
+            tooltip.style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px");
+          })
+          .on("mouseout", function (event, d) {
+            // Hide the tooltip when moving away from the country
+            tooltip.style("opacity", 0)
+              .style("left", "10px")
+              .style("top", "10px");
+            handleMouseOutCountry(event, d); // Add your mouseout logic here
+          })
+          .on("click", handleClickCountry);
+  
+        return fillColor;
+      } else {
+        return "lightgray"; // returns light grey for countries with no data
+      }
+    });
+    d3.select("#choroplethLabel svg").remove(); // Remove the old legend
+    createLegendForMap(attributeName);
+}
+
+function createLegendForMap(attributeName) {
+  if (attributeName == null) {
+    attributeName = "happiness_score"
+  }
+  // Create a legend for the choropleth map
+  const svg2 = d3
+    .select("#choroplethLabel")
+    .append("svg")
+    .attr("width", width * 0.2)
+    .attr("height", height);
+
+  // Create a gradient for the legend color scale
+  const defs = svg2.append("defs");
+  const gradient = defs
+    .append("linearGradient")
+    .attr("id", "colorScaleGradient")
+    .attr("x1", "0%")
+    .attr("y1", "0%")
+    .attr("x2", "0%")
+    .attr("y2", "100%");
+
+  gradient
+    .append("stop")
+    .attr("offset", "0%")
+    .attr("stop-color", d3.interpolateBlues(0));
+
+  gradient
+    .append("stop")
+    .attr("offset", "100%")
+    .attr("stop-color", d3.interpolateBlues(1));
+
+  // Create the legend rectangle filled with the color scale gradient
+  const legend = svg2.append("g").attr("transform", `translate(0, 40)`);
+  const legendHeight = height - 40;
+  const legendWidth = 20;
+
+  legend
+    .append("rect")
+    .attr("width", legendWidth)
+    .attr("height", legendHeight)
+    .style("fill", "url(#colorScaleGradient)");
+
+  legend
+    .append("text")
+    .attr("class", "y-axis-label")
+    .attr("x", -legendHeight / 2)
+    .attr("y", -margin.right + 35)
+    .style("text-anchor", "middle")
+    .attr("transform", "rotate(-90)")
+    .text(getAttributeName(attributeName));
+
+  //Calculate the tick values
+  const tickValues = d3.range(0, 1.1, 0.25); // Erzeugt [0, 0.25, 0.5, 0.75, 1]
+
+// Add tick marks and labels to the legend
+for (const tick of tickValues) {
+  legend
+    .append("text")
+    .attr("x", legendWidth + 5)
+    .attr("y", legendHeight * tick)
+    .text(tick.toFixed(2));
+}
 }
 
 function updateLineChart(attributeName, regionNames) {
-
-  const currentData = globalDataAttributes.filter(function (d) {
-    return d[attributeName] !== "" && (regionNames.includes('All') || regionNames.includes(d['region']));
+  const currentData = regionDataAttributes.filter(function (d) {
+    return d[attributeName] !== "";
   });
 
   if (regionNames.includes('All')) {
     regionNames = allRegions;
   }
 
-  // Lösche das vorhandene Line-Chart, wenn es existiert
-  d3.select("#LineChart").select("svg").remove();
-
   // Set the sizes of the line chart
-  const lineChartWidth = 600 - margin.left - margin.right;
-  const lineChartHeight = 200 - margin.top - margin.bottom;
-
-  // Create an SVG-element for the line chart
-  const svg = d3
-    .select("#LineChart")
-    .append("svg")
-    .attr("width", lineChartWidth + margin.left + margin.right + 100)
-    .attr("height", lineChartHeight + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+  const lineChartWidth = 570 - margin.left - margin.right;
+  const lineChartHeight = 300 - margin.top - margin.bottom;
 
   // Create x- and y-scales
   const xScale = d3.scaleLinear()
@@ -779,87 +1032,55 @@ function updateLineChart(attributeName, regionNames) {
     .x((d, i) => xScale(globalYears[i]))
     .y((d, i) => yScale(d));
 
-// Create a group for each region
-regionNames.forEach((region, index) => {
-const regionData = regionDataAttributes.filter(d => d.region === region);
-const attributeValues = regionData.map(d => +d[attributeName]);
+  d3.select("#LineChart").selectAll(".line")
+  .each(function(d) {
+    const regionData = currentData.filter(data => data.region === d3.select(this).attr("region"));
+    const attributeScores = regionData.map(data => +data[attributeName]);
+    const selectedLine = d3.select(this);
+  
+    // Update the line data and path
+    selectedLine.datum(attributeScores)
+                .transition()
+                .duration(500)
+                .attr("d", line)
+                .attr("opacity", regionNames.includes(selectedLine.attr("region")) ? 1 : 0.2);
+  });
 
-const lineGroup = svg.append("g");
+  const meanByYear = d3.group(regionDataAttributes, d => d.year);
 
-// Create a tooltip div element
-const tooltip = d3.select("body").append("div")
-  .attr("class", "tooltip")
-  .style("opacity", 0)
-  .style("position", "absolute")
-  .style("background", "white")
-  .style("border", "1px solid #000")
-  .style("padding", "5px");
-
-  lineGroup.append("path")
-    .datum(attributeValues)
-    .attr("class", "line")
-    .attr("d", line)
-    .attr("stroke", "black")
-    .attr("stroke-width", 2)
-    .attr("fill", "none")
-    .on("mouseover", function (event, d) {
-      // color stroke of line red when mouse over
-      d3.select(this).attr("stroke", "red");
-
-      // Show the tooltip with "abc" when hovering over a country
-      tooltip.transition()
-        .duration(200)
-        .style("opacity", 0.9);
-      tooltip.html("Region: " + region);
-    })
-    .on("mousemove", function (event) {
-      // Update the tooltip position as the mouse moves
-      tooltip.style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 10) + "px");
-    })
-    .on("mouseout", function (d) {
-      // Hide the tooltip when moving away from the country
-      tooltip.transition()
-        .duration(500)
-        .style("opacity", 0);
-      // set red colored line back when mouse out
-      d3.select(this).attr("stroke", "black");
+  // Calculate the mean for each attribute by year
+  meanByYear.forEach((values, year) => {
+    const meanData = { year: year };
+    regionDataAttributes.columns.forEach(attribute => {
+      if (attribute !== "year") {
+        const attributeValues = values.map(d => d[attribute]);
+        meanData[attribute] = d3.mean(attributeValues);
+      }
     });
-});
+    meanByYear.set(year, meanData);
+  });
 
-  // Add x-axis
-  svg.append("g")
-    .attr("class", "x-axis")
-    .attr("transform", `translate(0,${lineChartHeight})`)
-    .call(d3.axisBottom(xScale).ticks(6).tickFormat(d3.format("d")));
+  const updatedMeanData = Array.from(meanByYear.values()).map(d => ({
+    year: d.year,
+    [attributeName]: d[attributeName] // Update the attribute value
+  }));
 
-  // Add y-axis
-  svg.append("g")
-    .attr("class", "y-axis")
-    .call(d3.axisLeft(yScale));
+  const updatedMeanLine = d3.line()
+        .x(d => xScale(+d.year))
+        .y(d => yScale(d[attributeName]));
 
-  // Add labels to axis
-  svg.append("text")
-    .attr("class", "x-axis-label")
-    .attr("x", lineChartWidth / 2)
-    .attr("y", lineChartHeight + 30)
-    .style("text-anchor", "middle")
-    .text("Year");
+  d3.select("#LineChart").select(".mean-line")
+    .datum(updatedMeanData)
+    .transition()
+    .duration(500)
+    .attr("d", updatedMeanLine);
 
-  svg
-  .append("text")
-  .attr("class", "y-axis-label")
-  .attr("x", -lineChartHeight / 2)
-  .attr("y", -margin.left + 30)
-  .style("text-anchor", "middle")
-  .attr("transform", "rotate(-90)")
-  .text(getAttributeName(attributeName));
+  d3.select("#LineChart").select(".y-axis-label")
+    .text(getAttributeName(attributeName));
 }
 
 function updateScatterPlot(attributeId, regions) {
   const svg = d3.select("#scatterPlot").select("svg").select("g");
-
-  console.log("Here: ", attributeId)
 
   let currentData = globalDataAttributes;
 
@@ -870,8 +1091,6 @@ if (regions[0] === "All") {
   // Filter data based on selected regions
   currentData = currentData.filter(item => regions.includes(item.region));
 }
-
-  console.log(currentData);
 
   const xScale = d3
     .scaleLinear()
@@ -903,12 +1122,14 @@ if (regions[0] === "All") {
     .style("padding", "5px");
 
   // Update the y-axis of the scatter plot
-  d3.select(".y-axis")
+  d3.select("#scatterPlot")
+    .select(".y-axis")
     .transition()
     .call(d3.axisLeft(yScale).tickFormat((d) => d));
 
   // Change the y-axis label
-  svg.select(".y-axis-label")
+  svg.select("#scatterPlot")
+    .select(".y-axis-label")
     .attr("x", -height / 2)
     .attr("y", -margin.left + 30)
     .style("text-anchor", "middle")
