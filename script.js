@@ -629,22 +629,6 @@ const meanLine = d3.line()
 .x(d => xScale(+d.year))
 .y(d => yScale(d.happiness_score))
 
-// Append a new path element for the mean line
-svg.append("path")
-.datum(Array.from(meanByYear.values())) // Convert Map values to an array
-.attr("class", "mean-line")
-.attr("d", meanLine)
-.attr("stroke", d3.interpolateBlues(0.9)) // Adjust the color as needed
-.attr("stroke-width", 5)
-.attr("fill", "none");
-
-// Create a group for each region
-regions.forEach((region, index) => {
-const regionData = regionDataAttributes.filter(d => d.region === region);
-const happinessScores = regionData.map(d => +d.happiness_score);
-
-const lineGroup = svg.append("g");
-
 // Create a tooltip div element
 const tooltip = d3.select("body").append("div")
   .attr("class", "tooltip")
@@ -653,6 +637,120 @@ const tooltip = d3.select("body").append("div")
   .style("background", "white")
   .style("border", "1px solid #000")
   .style("padding", "5px");
+
+// Append a new path element for the mean line
+svg.append("path")
+.datum(Array.from(meanByYear.values())) // Convert Map values to an array
+.attr("class", "mean-line")
+.attr("d", meanLine)
+.attr("stroke", d3.interpolateBlues(0.9)) // Adjust the color as needed
+.attr("stroke-width", 5)
+.attr("fill", "none")
+.on("mouseover", function (event) {
+  // Show the tooltip when hovering over a data point
+  tooltip.style("opacity", 0.9);
+  tooltip.html("Region: Global");
+  d3.select(".mean-line").attr("stroke","red").raise();
+  d3.selectAll(".mean-circle")
+    .attr("fill", "red")
+    .raise();
+})
+.on("mousemove", function (event) {
+  // Update the tooltip position as the mouse moves
+  tooltip.style("left", (event.pageX + 10) + "px")
+    .style("top", (event.pageY - 10) + "px");
+})
+.on("mouseout", function (event) {
+  // Hide the tooltip when moving away from the data point
+  tooltip.style("opacity", 0)
+         .style("left", "10px")
+         .style("top", "10px");
+  d3.select(".mean-line").attr("stroke",d3.interpolateBlues(0.9)).raise();
+  d3.selectAll(".mean-circle")
+    .attr("fill", d3.interpolateBlues(0.9))
+    .raise();
+});;
+
+svg.selectAll(".circle")
+    .data(Array.from(meanByYear.values()))
+    .enter()
+    .append("circle")
+    .attr("class", "mean-circle")
+    .attr("cx", (d, i) => xScale(years[i]))
+    .attr("cy", (d) => yScale(d.happiness_score))
+    .attr("attribute", (d) => d.happiness_score)
+    .attr("r", 5) 
+    .attr("fill", d3.interpolateBlues(0.9))
+    .on("mouseover", function (event) {
+      // Show the tooltip when hovering over a data point
+      tooltip.style("opacity", 0.9);
+      tooltip.html("Region: Global<br/>Happiness Score: " + d3.select(this).attr("attribute"));
+      d3.select(".mean-line").attr("stroke","red").raise();
+      d3.selectAll(".mean-circle")
+        .attr("fill", "red")
+        .raise();
+    })
+    .on("mousemove", function (event) {
+      // Update the tooltip position as the mouse moves
+      tooltip.style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+    })
+    .on("mouseout", function (event) {
+      // Hide the tooltip when moving away from the data point
+      tooltip.style("opacity", 0)
+             .style("left", "10px")
+             .style("top", "10px");
+      d3.select(".mean-line").attr("stroke",d3.interpolateBlues(0.9)).raise();
+      d3.selectAll(".mean-circle")
+        .attr("fill", d3.interpolateBlues(0.9))
+        .raise();
+    });
+
+// Create a group for each region
+regions.forEach((region, index) => {
+const regionData = regionDataAttributes.filter(d => d.region === region);
+const happinessScores = regionData.map(d => +d.happiness_score);
+
+const lineGroup = svg.append("g");
+
+  lineGroup.selectAll("circle")
+    .data(happinessScores)
+    .enter()
+    .append("circle")
+    .attr("class", "circle")
+    .attr("region", region)
+    .attr("cx", (d, i) => xScale(years[i]))
+    .attr("cy", (d) => yScale(d))
+    .attr("attribute", (d) => d)
+    .attr("r", 3)
+    .attr("fill", d3.interpolateBlues(0.6)) // Adjust the color as needed
+    .on("mouseover", function (event) {
+      // Show the tooltip when hovering over a data point
+      tooltip
+        .style("opacity", 0.9);
+      tooltip.html("Region: " + region + "<br/>Happiness Score: " + d3.select(this).attr("attribute"));
+      d3.select(this)
+        .attr("fill", "red")
+        .raise();
+      handleMouseOverRegion(event, this);
+    })
+    .on("mousemove", function (event) {
+      // Update the tooltip position as the mouse moves
+      tooltip.style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+    })
+    .on("mouseout", function (event) {
+      // Hide the tooltip when moving away from the data point
+      tooltip.style("opacity", 0)
+        .style("left", "10px")
+        .style("top", "10px");
+      d3.select(this)
+        .attr("stroke-width", 0);
+      handleMouseOutRegion(event, this);
+    })
+    .on("click", function(event) {
+      handleClickRegion(event, this);
+    });
 
   lineGroup.append("path")
     .datum(happinessScores)
@@ -705,7 +803,7 @@ const tooltip = d3.select("body").append("div")
   const legendGroup = svg.append("g")
     .attr("class", "legend")
     .attr("transform", `translate(${lineChartWidth + 15}, 100)`); // Adjust the position as needed
-
+  
   // Create a legend item for the mean line
   const meanLegendItem = legendGroup.append("g")
     .attr("class", "legend-item");
@@ -809,7 +907,6 @@ function updateBoxPlots(attributeId, regions) {
   .attr("opacity", 0.2);
 
   for (const region in regions) {
-    console.log(regions[region]);
     const data = globalDataAttributes.filter(item => item.region === regions[region]);
 
     // Compute summary statistics used for the box
@@ -1010,12 +1107,21 @@ function updateLineChart(attributeName, regionNames) {
     return d[attributeName] !== "";
   });
 
+  // Create a tooltip div element
+  const tooltip = d3.select("body").append("div")
+  .attr("class", "tooltip")
+  .style("opacity", 0)
+  .style("position", "absolute")
+  .style("background", "white")
+  .style("border", "1px solid #000")
+  .style("padding", "5px");
+
   if (regionNames.includes('All')) {
     regionNames = allRegions;
   }
 
   // Set the sizes of the line chart
-  const lineChartWidth = 570 - margin.left - margin.right;
+  const lineChartWidth = 590 - margin.left - margin.right;
   const lineChartHeight = 300 - margin.top - margin.bottom;
 
   // Create x- and y-scales
@@ -1032,6 +1138,8 @@ function updateLineChart(attributeName, regionNames) {
     .x((d, i) => xScale(globalYears[i]))
     .y((d, i) => yScale(d));
 
+  const years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023];
+
   d3.select("#LineChart").selectAll(".line")
   .each(function(d) {
     const regionData = currentData.filter(data => data.region === d3.select(this).attr("region"));
@@ -1044,6 +1152,46 @@ function updateLineChart(attributeName, regionNames) {
                 .duration(500)
                 .attr("d", line)
                 .attr("opacity", regionNames.includes(selectedLine.attr("region")) ? 1 : 0.2);
+
+    d3.select("#LineChart").selectAll(".circle").filter(function () {
+      return selectedLine.attr("region") === d3.select(this).attr("region")
+    }).data(attributeScores)
+      .transition()
+      .duration(500)
+      .attr("cx", (d, i) => xScale(years[i]))
+      .attr("cy", (d) => yScale(d))
+      .attr("attribute", (d) => d)
+      .attr("opacity", regionNames.includes(selectedLine.attr("region")) ? 1 : 0.2);
+
+    d3.select("#LineChart").selectAll(".circle").filter(function () {
+      return selectedLine.attr("region") === d3.select(this).attr("region")
+    }).on("mouseover", function (event) {
+      // Show the tooltip when hovering over a data point
+      tooltip
+        .style("opacity", 0.9);
+      tooltip.html("Region: " + region + "<br/>" + getAttributeName(attributeName) + ": " + d3.select(this).attr("attribute"));
+      d3.select(this)
+        .attr("fill", "red")
+        .raise();
+      handleMouseOverRegion(event, this);
+    })
+    .on("mousemove", function (event) {
+      // Update the tooltip position as the mouse moves
+      tooltip.style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+    })
+    .on("mouseout", function (event) {
+      // Hide the tooltip when moving away from the data point
+      tooltip.style("opacity", 0)
+        .style("left", "10px")
+        .style("top", "10px");
+      d3.select(this)
+        .attr("stroke-width", 0);
+      handleMouseOutRegion(event, this);
+    })
+    .on("click", function(event) {
+      handleClickRegion(event, this);
+    });
   });
 
   const meanByYear = d3.group(regionDataAttributes, d => d.year);
@@ -1073,8 +1221,43 @@ function updateLineChart(attributeName, regionNames) {
     .datum(updatedMeanData)
     .transition()
     .duration(500)
-    .attr("d", updatedMeanLine);
+    .attr("d", updatedMeanLine)
+;
 
+  d3.select("#LineChart").selectAll(".mean-circle")
+    .data(updatedMeanData)
+    .transition()
+    .duration(500)
+    .attr("cx", (d, i) => xScale(years[i]))
+    .attr("cy", (d) => yScale(d[attributeName]))
+    .attr("attribute", (d) => d[attributeName])
+
+  d3.select("#LineChart").selectAll(".mean-circle")
+    .on("mouseover", function (event) {
+      // Show the tooltip when hovering over a data point
+      tooltip.style("opacity", 0.9);
+      tooltip.html("Region: Global<br/>" + getAttributeName(attributeName) + ": " + d3.select(this).attr("attribute"));
+      d3.select(".mean-line").attr("stroke","red").raise();
+      d3.selectAll(".mean-circle")
+        .attr("fill", "red")
+        .raise();
+    })
+    .on("mousemove", function (event) {
+      // Update the tooltip position as the mouse moves
+      tooltip.style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+    })
+    .on("mouseout", function (event) {
+      // Hide the tooltip when moving away from the data point
+      tooltip.style("opacity", 0)
+            .style("left", "10px")
+            .style("top", "10px");
+      d3.select(".mean-line").attr("stroke",d3.interpolateBlues(0.9)).raise();
+      d3.selectAll(".mean-circle")
+        .attr("fill", d3.interpolateBlues(0.9))
+        .raise();
+    });
+    
   d3.select("#LineChart").select(".y-axis-label")
     .text(getAttributeName(attributeName));
 }
@@ -1204,6 +1387,9 @@ if (regions[0] === "All") {
 
   // Remove any circles that are no longer in the updated data
   circles.exit().transition().duration(500).attr("r", 0).remove();
+
+  d3.select("#scatterPlot").select(".y-axis-label")
+    .text(getAttributeName(attributeId));  
 }
 
 function getAttributeName(attributeId) {

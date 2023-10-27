@@ -16,7 +16,7 @@ function handleMouseOutCountry(event, item) {
 function handleClickCountry(event, item) {
   if (selectedCountry === 0) {
     if (selectedRegion !== 0) {
-      updateRegion(selectedRegion, "black");
+      updateRegion(selectedRegion, d3.interpolateBlues(0.6));
       selectedRegion = 0;
     }
     updateCountry(item, "orange");
@@ -77,8 +77,8 @@ function handleClickRegion(event, item) {
     updateRegion(item, "orange");
     selectedRegion = item;
   } 
-  else if (d3.select(item).attr("stroke") === "orange") {
-    updateRegion(item, "black");
+  else if (d3.select(item).attr("stroke") === "orange" || d3.select(item).attr("fill") === "orange" ) {
+    updateRegion(item, d3.interpolateBlues(0.6));
     selectedRegion = 0;
   } 
   else {
@@ -101,7 +101,11 @@ function updateRegion(item, color) {
     //Update line
     d3.select("#LineChart").selectAll(".line").filter(function(d) {
       return d3.select(this).attr("region") === region;
-    }).attr("stroke", color).raise();
+    }).attr("stroke", color).style("z-index", 9999).raise();
+
+    d3.select("#LineChart").selectAll("circle").filter(function(d) {
+      return d3.select(this).attr("region") === region;
+    }).attr("fill", color).raise();
 
     //Update boxplot
     d3.select("#boxPlotContainer").selectAll(".box").filter(function(d) {
